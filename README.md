@@ -182,7 +182,7 @@ This is a BSc research project. For research collaborations or questions, please
 **Dominion Akinrotimi**  
 BSc student, Computer Science  
 Olusegun Agagu University of Science and Technology  
-[Email](akinrotimioyin@gmail.com) | [GitHub](https://github.com/DominionAkinrotimi/phytopathai) | [LinkedIn](https://www.linkedin.com/in/dominion-akinrotimi-7a5961268)
+[Email](akinrotimioyin@gmail.com) | [GitHub](https://github.com/DominionAkinrotimi) | [LinkedIn](https://www.linkedin.com/in/dominion-akinrotimi-7a5961268)
 
 ---
 
