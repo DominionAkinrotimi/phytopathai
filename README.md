@@ -2,7 +2,7 @@
 
 Breast histology classification with visual explanations, lesion clustering, and a literature map of plant compounds studied against each lesion type. From the BSc thesis *A Hybrid Deep Learning Approach for Breast Tumor Classification and Phytochemical Recommendation*.
 
-**Live app:** *(link added after deployment)*
+**Live app:** https://phytopathai.streamlit.app/
 
 **Research prototype. Not a medical device. Nothing here is diagnosis or treatment advice.**
 

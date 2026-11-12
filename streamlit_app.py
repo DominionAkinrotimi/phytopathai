@@ -2,6 +2,7 @@
 lesion clustering, and literature-linked phytochemicals. Research prototype."""
 
 import base64
+import io
 import json
 from pathlib import Path
 
@@ -36,11 +37,24 @@ def tables():
 
 
 def figure(container, name, caption):
+    # Images are embedded as data URIs: Streamlit Cloud's media endpoint returns
+    # HTTP 500 for st.image files.
     data = base64.b64encode((R / name).read_bytes()).decode()
     container.markdown(
         f"<figure style='margin:0'><img src='data:image/png;base64,{data}' style='width:100%'>"
         f"<figcaption style='font-size:0.85rem;color:gray'>{caption}</figcaption></figure>",
         unsafe_allow_html=True)
+
+
+def show(container, arr, caption):
+    """Show a numpy image inline (same data-URI approach as figure())."""
+    buf = io.BytesIO()
+    Image.fromarray(arr).resize((448, 448), Image.NEAREST).save(buf, format="PNG")
+    data = base64.b64encode(buf.getvalue()).decode()
+    container.markdown(
+        f"<figure style='margin:0'><img src='data:image/png;base64,{data}' style='width:100%;"
+        f"max-width:448px'><figcaption style='font-size:0.85rem;color:gray'>{caption}"
+        f"</figcaption></figure>", unsafe_allow_html=True)
 
 
 summary, defs, recs, report = tables()
@@ -68,30 +82,25 @@ with tab_run:
         name = core.CLASS_NAMES[k]
 
         c1, c2 = st.columns([1, 1])
-        with c1:
-            st.image(img, caption="What the model sees (whole image resized to 224×224)",
-                     width="stretch")
+        show(c1, img, "What the model sees (whole image resized to 224×224)")
         with c2:
             st.subheader(f"Prediction: {core.READABLE[name]}")
             st.write(f"Model probability **{probs[k]:.0%}**. On held-out test images this class was "
                      f"correctly recognised {report.loc[name, 'recall']:.0%} of the time.")
-            st.bar_chart(pd.DataFrame({"probability": probs},
-                                      index=[core.READABLE[c] for c in core.CLASS_NAMES]))
+            for c, p in zip(core.CLASS_NAMES, probs):
+                st.progress(float(p), text=f"{core.READABLE[c]}: {p:.1%}")
 
         st.subheader("Why the model decided this")
         g1, g2 = st.columns(2)
-        with g1:
-            cam = core.grad_cam(model, img, k)
-            st.image(core.overlay(img, cam), width="stretch",
-                     caption=f"Grad-CAM: warm colours are the regions that most raised the "
-                             f"'{core.READABLE[name]}' score.")
+        cam = core.grad_cam(model, img, k)
+        show(g1, core.overlay(img, cam), "Grad-CAM: warm colours are the regions that most raised "
+                                         f"the '{core.READABLE[name]}' score.")
         with g2:
             if st.button("Run SHAP (slower, about a minute)"):
                 with st.spinner("Computing SHAP values..."):
                     sv = core.shap_map(model, img, k)
-                st.image(core.signed_overlay(img, sv), width="stretch",
-                         caption=f"SHAP: red regions pushed towards '{core.READABLE[name]}', "
-                                 "blue regions pushed away.")
+                show(g2, core.signed_overlay(img, sv), "SHAP: red regions pushed towards "
+                     f"'{core.READABLE[name]}', blue regions pushed away.")
             else:
                 st.info("SHAP gives a second, independent explanation. Where it agrees with "
                         "Grad-CAM, the evidence that the model used that region is stronger.")
