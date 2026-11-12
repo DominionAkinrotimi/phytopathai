@@ -70,11 +70,25 @@ tab_run, tab_method = st.tabs(["Analyse an image", "Results and method"])
 with tab_run:
     st.write("Upload an H&E-stained breast histology microscopy image, like those in the "
              "[BACH 2018 dataset](https://iciar2018-challenge.grand-challenge.org/) the model was "
-             "trained on. Other kinds of images will still get an answer, but it will mean nothing.")
+             "trained on. Images that don't look like H&E histology are refused before analysis.")
     up = st.file_uploader("Image (TIFF, PNG or JPG)", type=["tif", "tiff", "png", "jpg", "jpeg"])
 
     if up:
         rgb = np.array(Image.open(up).convert("RGB"))
+        ok, colour = core.he_stain_check(rgb)
+        if not ok:
+            show(st, core.to_model_input(rgb), "Uploaded image")
+            st.error("This doesn't look like an H&E-stained histology image, so it hasn't been "
+                     "analysed. The model only knows four kinds of breast tissue and would give one of "
+                     "those answers for any picture, which would be meaningless.")
+            st.caption(f"Pink/purple stain: {colour['pink_purple']:.0%} of the image (needs at least "
+                       f"35%). Green/blue: {colour['green_blue']:.0%} (needs at most 10%). Non-background: "
+                       f"{colour['tissue']:.0%} (needs at least 20%). Fine texture: "
+                       f"{colour['texture']:.3f} (needs at least 0.035). This check is a rough filter, "
+                       "not a guarantee.")
+            ok = st.checkbox("It is an H&E histology image (for example a pale stain). Analyse it anyway.")
+
+    if up and ok:
         img = core.to_model_input(rgb)
         model = classifier()
         probs = core.predict(model, img)

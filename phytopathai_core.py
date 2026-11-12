@@ -56,6 +56,37 @@ def load_cluster_model():
     return extractor, {k: p[k] for k in p.files}
 
 
+def he_stain_check(rgb):
+    """Rough check that an image looks like H&E histology, run before classifying.
+
+    H&E slides are pink/purple tissue on a white background with almost no
+    green or blue, and fine texture everywhere. Thresholds were set on 13
+    histology images (lowest pink/purple share 0.42, green/blue always 0.00,
+    lowest median local texture 0.043) and 36 ordinary images (photos,
+    thumbnails, slides, screenshots), all of which fail at least one test.
+    It is a heuristic, not a guarantee.
+    """
+    from matplotlib.colors import rgb_to_hsv
+
+    small = cv2.resize(np.asarray(rgb, dtype=np.uint8), (IMG, IMG)) / 255.0
+    hsv = rgb_to_hsv(small)
+    h, s, v = hsv[..., 0] * 360, hsv[..., 1], hsv[..., 2]
+    tissue = ~((v > 0.85) & (s < 0.12))
+    tissue_share = float(tissue.mean())
+    gray = small.mean(axis=-1).astype(np.float32)
+    mean = cv2.blur(gray, (5, 5))
+    local_sd = np.sqrt(np.clip(cv2.blur(gray * gray, (5, 5)) - mean * mean, 0, None))
+    texture = float(np.median(local_sd))
+    if tissue_share < 0.05:
+        return False, {"tissue": tissue_share, "pink_purple": 0.0, "green_blue": 0.0, "texture": texture}
+    n = tissue.sum()
+    pink_purple = float((((h >= 260) | (h <= 20)) & (s >= 0.08) & tissue).sum() / n)
+    green_blue = float(((h > 70) & (h < 200) & (s > 0.15) & tissue).sum() / n)
+    ok = tissue_share >= 0.20 and pink_purple >= 0.35 and green_blue <= 0.10 and texture >= 0.035
+    return ok, {"tissue": tissue_share, "pink_purple": pink_purple, "green_blue": green_blue,
+                "texture": texture}
+
+
 def to_model_input(rgb):
     """Whole image resized to 224x224, as in training (no cropping or patches)."""
     return cv2.resize(np.asarray(rgb, dtype=np.uint8), (IMG, IMG), interpolation=cv2.INTER_LINEAR)

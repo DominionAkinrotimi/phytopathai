@@ -62,6 +62,10 @@ The silhouette is low: the two groups overlap heavily. They still line up with d
 
 Both work on the 224×224 input, so they highlight regions of tissue, not individual cells.
 
+## Input check
+
+A classifier always answers with one of its classes, even for a photo of a cat. Before analysing, the app checks that an upload looks like H&E histology: at least 35% pink/purple stain, at most 10% green/blue, at least 20% non-background, and fine texture throughout. On 13 histology images and 36 ordinary images (photos, thumbnails, slides, screenshots) it accepted all 13 and refused all 36. It is a heuristic, so the app offers an "analyse anyway" option for unusually pale real slides.
+
 ## Limitations
 
 - 400 images from one dataset, with no external validation.
