@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+app/phytopathai_vgg16_fp16.npz
+app/*.part
+.venv/

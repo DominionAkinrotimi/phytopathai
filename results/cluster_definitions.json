@@ -1,0 +1,50 @@
+{
+  "0": {
+    "diagnostic_composition_pct": {
+      "InSitu": 57.95,
+      "Benign": 37.5,
+      "Invasive": 4.55
+    },
+    "dominant_diagnosis": "InSitu",
+    "n_images": 88,
+    "median_nuclear_size": 24.0,
+    "median_nuclear_pleomorphism": 23.417,
+    "median_glandular_score": 0.592,
+    "morphology_p_values": {
+      "nuclear_size": 0.9760022230057445,
+      "nuclear_pleomorphism": 0.39890487205801606,
+      "glandular_score": 7.420221908450942e-07
+    },
+    "k": 2,
+    "train_silhouette": 0.11341534554958344,
+    "heldout_silhouette": 0.0982886403799057,
+    "train_chi2_p": 4.666703795047555e-15,
+    "heldout_chi2_p": 1.9650359846730773e-06,
+    "train_adjusted_rand_vs_diagnosis": 0.19731052741852537,
+    "note": "Silhouette near 0 means clusters overlap heavily. A low chi-square p only means cluster membership is associated with diagnosis."
+  },
+  "1": {
+    "diagnostic_composition_pct": {
+      "Invasive": 54.1,
+      "Benign": 30.33,
+      "InSitu": 15.57
+    },
+    "dominant_diagnosis": "Invasive",
+    "n_images": 122,
+    "median_nuclear_size": 23.0,
+    "median_nuclear_pleomorphism": 18.842,
+    "median_glandular_score": 0.749,
+    "morphology_p_values": {
+      "nuclear_size": 0.9760022230057445,
+      "nuclear_pleomorphism": 0.39890487205801606,
+      "glandular_score": 7.420221908450942e-07
+    },
+    "k": 2,
+    "train_silhouette": 0.11341534554958344,
+    "heldout_silhouette": 0.0982886403799057,
+    "train_chi2_p": 4.666703795047555e-15,
+    "heldout_chi2_p": 1.9650359846730773e-06,
+    "train_adjusted_rand_vs_diagnosis": 0.19731052741852537,
+    "note": "Silhouette near 0 means clusters overlap heavily. A low chi-square p only means cluster membership is associated with diagnosis."
+  }
+}

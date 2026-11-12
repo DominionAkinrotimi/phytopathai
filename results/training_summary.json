@@ -1,0 +1,17 @@
+{
+  "test_images": 80,
+  "test_accuracy": 0.6875,
+  "accuracy_95ci": [
+    0.5875,
+    0.7875
+  ],
+  "macro_f1": 0.6776879970653152,
+  "matthews_corrcoef": 0.5935614662907045,
+  "cohen_kappa": 0.5833333333333333,
+  "stage1_epochs": 40,
+  "stage2_epochs": 13,
+  "train_images": 272,
+  "validation_images": 48,
+  "original_reported_accuracy": 0.7875,
+  "note": "Original 78.75% used no VGG16 preprocessing and picked the best epoch on the test set."
+}

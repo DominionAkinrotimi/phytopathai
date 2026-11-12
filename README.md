@@ -1,191 +1,104 @@
-# PhytopathAI: AI-Powered Breast Cancer Histopathology Analysis with Phytotherapeutic Recommendations
+# PhytopathAI
 
-![PhytopathAI](https://img.shields.io/badge/BSc-Research-blue)
-![License](https://img.shields.io/badge/License-CC--BY--4.0-green)
-![Python](https://img.shields.io/badge/Python-3.8%2B-blue)
-![TensorFlow](https://img.shields.io/badge/TensorFlow-2.10%2B-orange)
+Breast histology classification with visual explanations, lesion clustering, and a literature map of plant compounds studied against each lesion type. From the BSc thesis *A Hybrid Deep Learning Approach for Breast Tumor Classification and Phytochemical Recommendation*.
 
-An end-to-end deep learning system that combines computational pathology with ethnobotanical discovery to provide diagnostic classification, biological subtyping, and evidence-based phytochemical recommendations for breast cancer histopathology images.
+**Live app:** *(link added after deployment)*
 
-## Research Overview
+**Research prototype. Not a medical device. Nothing here is diagnosis or treatment advice.**
 
-This research project develops a novel framework that extends beyond traditional cancer classification to discover intrinsic biological patterns and connect them to potential plant-derived therapeutics. The system demonstrates how AI can bridge modern computational pathology with traditional medicinal knowledge.
+## What it does
 
-## Key Features
+1. **Classifies** an H&E breast histology image as normal, benign, in situ carcinoma or invasive carcinoma (VGG16, transfer learning).
+2. **Explains** the prediction with Grad-CAM, plus SHAP on request, showing which tissue regions drove the decision.
+3. **Clusters** lesion images (ResNet50 features + K-Means) into an early-lesion group and an invasive-enriched group.
+4. **Lists plant compounds** with published laboratory evidence against that lesion type, each with its mechanism, evidence tier and PubMed source.
 
-- **Diagnostic Classification**: VGG16-based model achieving 78.75% accuracy in 4-class classification (Normal, Benign, In Situ, Invasive)
-- **Biological Subtyping**: Unsupervised discovery of two clinically relevant tumor subtypes using ResNet50 features and K-Means clustering
-- **Phytochemical Recommendations**: Evidence-based mapping of tumor biology to plant-derived compounds with known mechanisms
-- **Morphological Analysis**: Quantitative assessment of nuclear features and tissue architecture
-- **Reproducibility Framework**: Comprehensive validation system for new data assessment
+## Results (rebuilt November 2026)
 
-## 📊 Performance Metrics
+Data: [BACH 2018](https://iciar2018-challenge.grand-challenge.org/) microscopy set, 400 images, 100 per class. Split: 272 training, 48 validation, 80 test. The test images were used once, after every choice had been made on the validation set.
 
-### Classification Performance
-- **Overall Accuracy**: 78.75%
-- **Precision (Invasive)**: 85%
-- **Recall (Benign)**: 88%
-- **F1-Score**: 0.73 (macro average)
+| | Original thesis run | This rebuild |
+|---|---|---|
+| Test accuracy | 78.75% | **68.75%** (95% CI 58.8–78.8%) |
+| Macro F1 | 0.79 | **0.68** |
+| Matthews correlation | not reported | 0.59 |
+| VGG16 input preprocessing | missing | applied |
+| Best epoch chosen on | **test set** | validation set |
 
-### Clustering Results
-- **Silhouette Score**: 0.066 (training), 0.045 (validation)
-- **Cluster 0**: 94.8% less aggressive tumors (Benign/In Situ)
-- **Cluster 1**: 67.4% invasive carcinomas
-- **Morphological Significance**: 
-  - Glandular organization: p < 0.0001
-  - Nuclear pleomorphism: p = 0.037
+The original number was higher because the best training epoch was picked by looking at test accuracy, which leaks the test set into model selection. The rebuilt figure is lower but is an honest estimate.
 
-## Architecture
+| Class (20 test images each) | Precision | Recall |
+|---|---|---|
+| Normal | 0.79 | 0.75 |
+| Benign | 0.57 | 0.60 |
+| In situ | 0.82 | **0.45** |
+| Invasive | 0.66 | **0.95** |
 
-![image/png](https://cdn-uploads.huggingface.co/production/uploads/6851ff00a4d763150636298d/9eK33GLj7wCpO9zGgZnd9.png)
+Invasive carcinoma is found almost every time; in situ carcinoma is the hardest class and is often called invasive or benign.
 
+![Confusion matrix](results/confusion_matrix.png)
 
-## 🚀 Quick Start
+### Lesion clusters
 
-### Installation
+ResNet50 features of the 300 benign, in situ and invasive images (210 to fit, 90 held out), scaled and grouped with K-Means, k = 2.
+
+| | Training | Held out |
+|---|---|---|
+| Silhouette | 0.11 | 0.10 |
+| Chi-square vs diagnosis | p = 5×10⁻¹⁵ | p = 2×10⁻⁶ |
+
+The silhouette is low: the two groups overlap heavily. They still line up with diagnosis. Cluster 1 holds 66 of the 70 training invasive images; cluster 0 is mostly benign and in situ. In effect the clustering separates *invasive* from *early lesions*, which is less than the "biological subtypes" the thesis described.
+
+![t-SNE](results/tsne_clusters_vs_diagnosis.png)
+
+### Plant compounds
+
+`data/phytochemical_db_v2.csv` holds 8 compounds, each with its mechanism, evidence tier (A: cell and animal studies; B: cell studies only) and a PubMed link. The compounds are linked to a cluster by published mechanism (anti-invasive vs early-stage hormonal action), not learned from this model's data. The original thesis citations were replaced because they did not point to the studies they were cited for.
+
+## Interpretability
+
+- **Grad-CAM** on VGG16's last convolution layer. It is fast and shown for every image.
+- **SHAP** with a blurring image masker, on request. It is slower but model-agnostic, so it gives an independent check.
+
+Both work on the 224×224 input, so they highlight regions of tissue, not individual cells.
+
+## Limitations
+
+- 400 images from one dataset, with no external validation.
+- Whole images are shrunk from 2048×1536 to 224×224, losing cell-level detail. Patch-based training is the obvious next step.
+- No pathologist reviewed the clusters or the explanation maps.
+- Compound links summarise laboratory studies. They are not evidence that any compound helps patients.
+
+## Repository
+
+| Path | Contents |
+|---|---|
+| `notebooks/phytopathai_pipeline.ipynb` | The full pipeline (Colab, T4 GPU): data split, training, evaluation, clustering, morphology, compound mapping, app export |
+| `notebooks/original_2025/` | The original thesis notebooks, kept for comparison |
+| `results/` | Every number and figure above, written by the pipeline |
+| `data/phytochemical_db_v2.csv` | Compound evidence table |
+| `phytopathai_core.py`, `streamlit_app.py` | The app |
+| `app/cluster_params.npz` | Cluster centres and feature scaling used by the app |
+
+The trained classifier weights (half precision, 39 MB; same test predictions as full precision) are downloaded from Google Drive when the app starts.
+
+## Run it
 
 ```bash
-# Clone repository
-git clone https://github.com/yourusername/phytopathai.git
-cd phytopathai
-
-# Install dependencies
 pip install -r requirements.txt
-
-# Download models (if not included)
-# Place models in /models directory
+streamlit run streamlit_app.py
 ```
 
-### Usage
+To retrain, open `notebooks/phytopathai_pipeline.ipynb` in Google Colab with a T4 GPU and the BACH images in `MyDrive/BreastCancerProject/Train/{Normal,Benign,InSitu,Invasive}/`.
 
-```python
-from app import analyze_breast_cancer
+## References
 
-# Analyze a single image
-results, explanation = analyze_breast_cancer(your_image_array)
-print(explanation)
-```
+1. Aresta G, et al. BACH: Grand challenge on breast cancer histology images. *Medical Image Analysis* 2019;56:122–139.
+2. Simonyan K, Zisserman A. Very deep convolutional networks for large-scale image recognition. *ICLR* 2015.
+3. He K, et al. Deep residual learning for image recognition. *CVPR* 2016.
+4. Selvaraju RR, et al. Grad-CAM: Visual explanations from deep networks via gradient-based localization. *ICCV* 2017.
+5. Lundberg SM, Lee S-I. A unified approach to interpreting model predictions. *NeurIPS* 2017.
 
-### Web Interface
+## License
 
-```bash
-# Launch Gradio UI
-python app.py
-
-# Access at http://localhost:7860
-```
-
-## 📁 Project Structure
-
-```
-phytopathai/
-├── app.py                 # Main Gradio application
-├── requirements.txt       # Python dependencies
-├── models/               # Trained models
-│   ├── classifier_final.h5
-│   ├── kmeans_model.pkl
-│   ├── feature_scaler.pkl
-│   └── validation_assets.pkl
-├── results/              # Analysis outputs
-│   └── tables/
-│       ├── phytochemical_recommendation_db.csv
-│       └── classification_report.csv
-├── examples/             # Sample images
-└── validation_function.py # Reproducibility framework
-```
-
-## 🌿 Phytochemical Database
-
-The system includes 20+ evidence-based plant-compound mappings:
-
-- **Cluster 0 (Less Aggressive)**: Genistein (Soy), Resveratrol (Grapes)
-- **Cluster 1 (More Aggressive)**: Curcumin (Turmeric), Sulforaphane (Broccoli)
-- **Broad Spectrum**: EGCG (Green Tea), Quercetin (Ginkgo)
-
-Each recommendation includes:
-- Scientific mechanisms of action
-- PubMed references
-- Concentration data
-- Safety profiles
-
-## 🔬 Methodological Details
-
-### Data
-- **Dataset**: BACH ICIAR 2018 (400 H&E-stained images)
-- **Classes**: Normal, Benign, In Situ, Invasive
-- **Preprocessing**: 224×224 resize, ImageNet normalization, histology-specific augmentation
-
-### Training Strategy
-1. **Phase 1**: Feature extraction with frozen VGG16 backbone
-2. **Phase 2**: Fine-tuning of final convolutional layers
-3. **Validation**: Stratified 80/20 split with early stopping
-
-### Clustering Approach
-- **Features**: ResNet50 penultimate layer (2048 dimensions)
-- **Algorithm**: K-Means with silhouette analysis
-- **Validation**: External validation set and morphological consistency checks
-
-## ⚠️ Important Limitations & Caveats
-
-### Clinical Validation Status
-🚨 **This is a research prototype, not a clinical tool.** Important limitations include:
-
-- **No Expert Pathologist Validation**: Cluster interpretations are based on computational morphology without validation by board-certified pathologists
-- **Limited Dataset**: Trained on only 400 images from a single dataset (BACH 2018)
-- **No IHC Correlation**: Biological subtypes are inferred from H&E morphology alone without immunohistochemical validation
-- **Retrospective Analysis**: No prospective clinical validation has been performed
-- **Sample Bias**: Potential demographic and preparation biases in training data
-
-### Technical Limitations
-- **Moderate Accuracy**: 78.75% accuracy may be insufficient for clinical deployment
-- **Feature Stability**: Cluster assignments show some instability (silhouette ~0.05)
-- **Generalization Unknown**: Performance on external datasets not extensively validated
-- **Computational Requirements**: Requires GPU for optimal performance
-
-### Ethical Considerations
-- **Not for Diagnostic Use**: This system should not be used for clinical decision-making
-- **Supplementary Tool**: intended as a research aid, not a replacement for pathologist expertise
-- **Phytochemical Precautions**: Recommendations are based on computational evidence, not clinical trials
-
-## 🎯 Future Work
-
-- [ ] Multi-institutional validation studies
-- [ ] Integration with IHC and genomic data
-- [ ] Prospective clinical validation
-- [ ] Expansion to other cancer types
-- [ ] Mobile deployment for low-resource settings
-- [ ] Real-time collaboration with pathologists
-
-## 📚 Citation
-
-If you use this work in your research, please cite:
-
-```bibtex
-@bscthesis{akinrotimi2024phytopathai,
-  title={A Hybrid Deep Learning Framework for Breast Tumor Classification and Phytochemical Recommendation in Histopathology Images},
-  author={Akinrotimi, Dominion},
-  year={2024},
-  school={Olusegun Agagu University of Science and Technology}
-}
-```
-
-## 📄 License
-
-This project is licensed under the Creative Commons Attribution 4.0 International License - see the [LICENSE](LICENSE) file for details.
-
-## 🤝 Contributing
-
-This is a BSc research project. For research collaborations or questions, please contact the author.
-
-## 📞 Contact
-
-**Dominion Akinrotimi**  
-BSc student, Computer Science  
-Olusegun Agagu University of Science and Technology  
-[Email](akinrotimioyin@gmail.com) | [GitHub](https://github.com/DominionAkinrotimi) | [LinkedIn](https://www.linkedin.com/in/dominion-akinrotimi-7a5961268)
-
----
-
-**Disclaimer**: This tool is for research purposes only. Not for clinical use. Always consult qualified healthcare professionals for medical diagnosis and treatment decisions.
-
----
+Code: Apache 2.0 (see `LICENSE`). The BACH images are not included; see the dataset's own terms.
