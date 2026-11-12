@@ -8,14 +8,46 @@ Breast histology classification with visual explanations, lesion clustering, and
 
 ## What it does
 
-1. **Classifies** an H&E breast histology image as normal, benign, in situ carcinoma or invasive carcinoma (VGG16, transfer learning).
-2. **Explains** the prediction with Grad-CAM, plus SHAP on request, showing which tissue regions drove the decision.
-3. **Clusters** lesion images (ResNet50 features + K-Means) into an early-lesion group and an invasive-enriched group.
-4. **Lists plant compounds** with published laboratory evidence against that lesion type, each with its mechanism, evidence tier and PubMed source.
+1. **Checks** the upload looks like H&E histology, and refuses anything else.
+2. **Classifies** it as normal, benign, in situ carcinoma or invasive carcinoma (ResNet50 features from 12 higher-resolution patches + logistic regression; 85.0% on held-out test images).
+3. **Explains** the prediction exactly: a class activation map and a SHAP value for each patch.
+4. **Clusters** lesion images (ResNet50 features + K-Means) into an early-lesion group and an invasive-enriched group.
+5. **Lists plant compounds** with published laboratory evidence against that lesion type, each with its mechanism, evidence tier and PubMed source.
 
-## Results (rebuilt November 2026)
+## Results (November 2026)
 
-Data: [BACH 2018](https://iciar2018-challenge.grand-challenge.org/) microscopy set, 400 images, 100 per class. Split: 272 training, 48 validation, 80 test. The test images were used once, after every choice had been made on the validation set.
+Data: [BACH 2018](https://iciar2018-challenge.grand-challenge.org/) microscopy set, 400 images, 100 per class. The same 80 images (20 per class) are the test set throughout, used once per model after every choice was made.
+
+### Selected model: patches + ResNet50 + logistic regression
+
+Chosen from 20 candidates by 5-fold cross-validation on the other 320 images, following a protocol written before any result was seen (`notebooks/phytopathai_experiments.ipynb`).
+
+| | Fine-tuned VGG16, whole image | **ResNet50, 12 patches** |
+|---|---|---|
+| Test accuracy | 68.75% (95% CI 58.8–78.8%) | **85.0%** (95% CI 76.3–92.5%) |
+| Macro F1 | 0.68 | **0.85** |
+| Matthews correlation | 0.59 | **0.80** |
+| In situ recall | 0.45 | **0.95** |
+| Cross-validation accuracy | — | 81.6% ± 5.4% |
+
+On the same 80 test images the patch model corrected 19 of the earlier model's errors and introduced 6 new ones (exact McNemar p = 0.015).
+
+| Class (20 test images each) | Precision | Recall |
+|---|---|---|
+| Normal | 0.89 | 0.85 |
+| Benign | 0.88 | 0.75 |
+| In situ | 0.76 | 0.95 |
+| Invasive | 0.89 | 0.85 |
+
+![Confusion matrix](results/experiments/confusion_matrix_best.png)
+
+**What made the difference.** Every network did better on 12 patches from the half-resolution image than on the whole image shrunk to 224×224: by 6 to 9 points without stain normalisation, and 2 to 11 points with it. Network size did not: DenseNet121 (7 M parameters) reached 80.3% in cross-validation against 81.6% for ResNet50 (23.6 M) and 81.2% for ConvNeXt-Tiny (27.8 M), and VGG16 (14.7 M) was the weakest. On patches, Reinhard stain normalisation helped the two smallest networks slightly and hurt the three larger ones. ResNet50 and ConvNeXt-Tiny are within noise of each other; ResNet50 was selected because the protocol said to take the top cross-validation score. The test score (85.0%) is above the cross-validation estimate (81.6%), so part of it is a favourable test set.
+
+![Cross-validation comparison](results/experiments/cv_comparison.png)
+
+### Earlier model and the leakage fix
+
+The thesis's original fine-tuned VGG16 reported 78.75%, but it picked its best training epoch by looking at test accuracy and skipped VGG16's input preprocessing. Rebuilt correctly (272 training, 48 validation, 80 test), it scores 68.75%:
 
 | | Original thesis run | This rebuild |
 |---|---|---|
@@ -27,16 +59,7 @@ Data: [BACH 2018](https://iciar2018-challenge.grand-challenge.org/) microscopy s
 
 The original number was higher because the best training epoch was picked by looking at test accuracy, which leaks the test set into model selection. The rebuilt figure is lower but is an honest estimate.
 
-| Class (20 test images each) | Precision | Recall |
-|---|---|---|
-| Normal | 0.79 | 0.75 |
-| Benign | 0.57 | 0.60 |
-| In situ | 0.82 | **0.45** |
-| Invasive | 0.66 | **0.95** |
-
-Invasive carcinoma is found almost every time; in situ carcinoma is the hardest class and is often called invasive or benign.
-
-![Confusion matrix](results/confusion_matrix.png)
+The earlier model's results are in `results/` and its pipeline in `notebooks/phytopathai_pipeline.ipynb`.
 
 ### Lesion clusters
 
@@ -57,10 +80,12 @@ The silhouette is low: the two groups overlap heavily. They still line up with d
 
 ## Interpretability
 
-- **Grad-CAM** on VGG16's last convolution layer. It is fast and shown for every image.
-- **SHAP** with a blurring image masker, on request. It is slower but model-agnostic, so it gives an independent check.
+The classifier is linear in the averaged ResNet50 features, so both explanations are exact rather than approximated:
 
-Both work on the 224×224 input, so they highlight regions of tissue, not individual cells.
+- **Class activation map.** Each patch's 7×7 ResNet50 feature map is multiplied by the class weights, showing where inside the patch the evidence sits.
+- **SHAP value per patch.** With the training mean as the baseline, the Shapley value of patch *p* for class *c* is ⅟₁₂ · w_c · (f_p − mean). The 12 values add up exactly to the class score, so no sampling is needed.
+
+Each patch covers about 448×448 pixels of the original 2048×1536 image, so the maps point to regions of tissue, not individual cells.
 
 ## Input check
 
@@ -69,7 +94,8 @@ A classifier always answers with one of its classes, even for a photo of a cat. 
 ## Limitations
 
 - 400 images from one dataset, with no external validation.
-- Whole images are shrunk from 2048×1536 to 224×224, losing cell-level detail. Patch-based training is the obvious next step.
+- Patches come from a half-resolution image and only the central 3×4 grid is used; full-resolution patches and fine-tuning are untested.
+- The network is frozen ImageNet ResNet50; a pathology-pretrained network might do better.
 - No pathologist reviewed the clusters or the explanation maps.
 - Compound links summarise laboratory studies. They are not evidence that any compound helps patients.
 
@@ -77,14 +103,17 @@ A classifier always answers with one of its classes, even for a photo of a cat. 
 
 | Path | Contents |
 |---|---|
-| `notebooks/phytopathai_pipeline.ipynb` | The full pipeline (Colab, T4 GPU): data split, training, evaluation, clustering, morphology, compound mapping, app export |
+| `notebooks/phytopathai_experiments.ipynb` | The 20-candidate comparison and the selected model (Colab, T4 GPU) |
+| `notebooks/phytopathai_pipeline.ipynb` | The earlier pipeline: fine-tuned VGG16, clustering, morphology, compound mapping |
 | `notebooks/original_2025/` | The original thesis notebooks, kept for comparison |
-| `results/` | Every number and figure above, written by the pipeline |
+| `results/experiments/` | Comparison and selected-model results |
+| `results/` | Earlier model, clustering and compound results |
 | `data/phytochemical_db_v2.csv` | Compound evidence table |
 | `phytopathai_core.py`, `streamlit_app.py` | The app |
+| `app/patch_model.npz` | The selected classifier: feature scaling and logistic-regression weights (100 KB) |
 | `app/cluster_params.npz` | Cluster centres and feature scaling used by the app |
 
-The trained classifier weights (half precision, 39 MB; same test predictions as full precision) are downloaded from Google Drive when the app starts.
+ResNet50's ImageNet weights are downloaded by Keras when the app starts.
 
 ## Run it
 
@@ -93,15 +122,17 @@ pip install -r requirements.txt
 streamlit run streamlit_app.py
 ```
 
-To retrain, open `notebooks/phytopathai_pipeline.ipynb` in Google Colab with a T4 GPU and the BACH images in `MyDrive/BreastCancerProject/Train/{Normal,Benign,InSitu,Invasive}/`.
+To rerun the comparison, open `notebooks/phytopathai_experiments.ipynb` in Google Colab with a T4 GPU and the BACH images in `MyDrive/BreastCancerProject/Train/{Normal,Benign,InSitu,Invasive}/`.
 
 ## References
 
 1. Aresta G, et al. BACH: Grand challenge on breast cancer histology images. *Medical Image Analysis* 2019;56:122–139.
 2. Simonyan K, Zisserman A. Very deep convolutional networks for large-scale image recognition. *ICLR* 2015.
 3. He K, et al. Deep residual learning for image recognition. *CVPR* 2016.
-4. Selvaraju RR, et al. Grad-CAM: Visual explanations from deep networks via gradient-based localization. *ICCV* 2017.
-5. Lundberg SM, Lee S-I. A unified approach to interpreting model predictions. *NeurIPS* 2017.
+4. Zhou B, et al. Learning deep features for discriminative localization. *CVPR* 2016.
+5. Selvaraju RR, et al. Grad-CAM: Visual explanations from deep networks via gradient-based localization. *ICCV* 2017.
+6. Reinhard E, et al. Color transfer between images. *IEEE Computer Graphics and Applications* 2001;21(5):34–41.
+7. Lundberg SM, Lee S-I. A unified approach to interpreting model predictions. *NeurIPS* 2017.
 
 ## License
 

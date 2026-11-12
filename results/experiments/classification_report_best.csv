@@ -1,0 +1,8 @@
+,precision,recall,f1-score,support
+Normal,0.8947,0.85,0.8718,20.0
+Benign,0.8824,0.75,0.8108,20.0
+InSitu,0.76,0.95,0.8444,20.0
+Invasive,0.8947,0.85,0.8718,20.0
+accuracy,0.85,0.85,0.85,0.85
+macro avg,0.858,0.85,0.8497,80.0
+weighted avg,0.858,0.85,0.8497,80.0

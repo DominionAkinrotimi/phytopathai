@@ -1,0 +1,24 @@
+{
+  "selected": {
+    "backbone": "ResNet50",
+    "input": "patches",
+    "stain": "none",
+    "params_M": 23.6,
+    "chosen_C": 1.0,
+    "cv_accuracy": 0.815625,
+    "cv_accuracy_sd": 0.05358258812338201
+  },
+  "test_accuracy": 0.85,
+  "test_accuracy_95ci": [
+    0.7625,
+    0.925
+  ],
+  "test_macro_f1": 0.8497112497112498,
+  "test_mcc": 0.803016981165593,
+  "baseline_test_accuracy": 0.6875,
+  "mcnemar": {
+    "baseline_right_new_wrong": 6,
+    "baseline_wrong_new_right": 19,
+    "exact_p": 0.01463329792022705
+  }
+}
