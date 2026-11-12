@@ -3,3 +3,4 @@ __pycache__/
 app/phytopathai_vgg16_fp16.npz
 app/*.part
 .venv/
+results/experiments/stain_example.png
